@@ -30,7 +30,7 @@ all:
 test: test-bin
 	$(PROVE) -v ./test-bin
 
-test-bin: picohttpparser.c picotest/picotest.c test.c str_range.s
+test-bin: picohttpparser.c picotest/picotest.c test.c str_range.S
 	$(CC) -Wall $(CFLAGS) $(LDFLAGS) -o $@ $^ -march=native -O3
 
 clean:
