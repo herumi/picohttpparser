@@ -10,17 +10,16 @@ find_str_range:
     mov    %rcx, %rax
     mov    %rsi, %rdx
     sub    %rdi, %rdx
-    jmp    .lp_1
-.lp_0:
-   lea     16(%rdi), %rdi
-   lea     16(%rdx), %rdx
-.lp_1:
+    sub    $16, %rdi
+.lp:
 .ifdef __AVX2__
-    vpcmpestri $0x14,(%rdi), %xmm0
+    vpcmpestri $0x14,16(%rdi), %xmm0
 .else
-    pcmpestri $0x14,(%rdi), %xmm0
+    pcmpestri $0x14,16(%rdi), %xmm0
 .endif
-    ja     .lp_0
+    lea     16(%rdi), %rdi
+    lea     16(%rdx), %rdx
+    ja     .lp
     sbb    %rax, %rax
     and    %rcx, %rax
     lea    (%rdi, %rcx, 1), %rax
