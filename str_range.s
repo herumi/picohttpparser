@@ -18,7 +18,7 @@ find_str_range:
     pcmpestri $0x14,16(%rdi), %xmm0
 .endif
     lea     16(%rdi), %rdi
-    lea     16(%rdx), %rdx
+    lea     -16(%rdx), %rdx
     ja     .lp
     sbb    %rax, %rax
     and    %rcx, %rax
