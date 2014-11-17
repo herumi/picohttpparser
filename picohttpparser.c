@@ -97,7 +97,7 @@ static inline const char* get_token_to_eol(const char* buf, const char* buf_end,
 
   /* find non-printable char within the next 16 bytes, this is the hottest code; manually inlined */
 #if 1
-#if 0
+#if 1
   buf = find_str_range(buf, buf_end, ranges, 6);
 #else
   size_t left = buf_end - buf;
