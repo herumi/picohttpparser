@@ -80,6 +80,8 @@ static const char* token_char_map =
   "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"
   "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0";
 
+extern const char* find_str_range(const char* buf, const char* buf_end, const char* range, size_t rangeLen);
+
 static inline const char* get_token_to_eol(const char* buf, const char* buf_end,
                                     const char** token, size_t* token_len,
                                     int* ret)
@@ -94,6 +96,24 @@ static inline const char* get_token_to_eol(const char* buf, const char* buf_end,
   const char* token_start = buf;
 
   /* find non-printable char within the next 16 bytes, this is the hottest code; manually inlined */
+#if 1
+#if 0
+  buf = find_str_range(buf, buf_end, ranges, 6);
+#else
+  size_t left = buf_end - buf;
+  __m128i v;
+  for (;;) {
+    v = _mm_loadu_si128((const __m128i*)buf);
+    if (!_mm_cmpestra(ranges16, sizeof(ranges) - 1, v, left, 0x14)) break;
+    buf += 16;
+    left -= 16;
+  }
+  if (_mm_cmpestrc(ranges16, sizeof(ranges) - 1, v, left, 0x14)) {
+    buf += _mm_cmpestri(ranges16, sizeof(ranges) - 1, v, left, 0x14);
+  }
+#endif
+  CHECK_EOF();
+#else
   ssize_t left_m16 = buf_end - buf - 16;
   while (likely(left_m16 >= 0)) {
     int r = _mm_cmpestri(ranges16, sizeof(ranges) - 1, *(const __m128i*)buf, 16, _SIDD_LEAST_SIGNIFICANT | _SIDD_NEGATIVE_POLARITY | _SIDD_CMP_RANGES | _SIDD_UBYTE_OPS);
@@ -113,6 +133,7 @@ static inline const char* get_token_to_eol(const char* buf, const char* buf_end,
     }
   }
  FOUND_CTL:
+#endif
   if (likely(*buf == '\015')) {
     ++buf;
     EXPECT_CHAR('\012');
