@@ -1,7 +1,12 @@
 .text
+#ifdef ADD_UNDERSCORE
+.global _find_str_range
+_find_str_range:
+#else
 .global find_str_range
-
 find_str_range:
+#endif
+
 #ifdef __AVX2__
     vmovdqu (%rdx), %xmm0
 #else
