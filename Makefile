@@ -36,4 +36,10 @@ test-bin: picohttpparser.c picotest/picotest.c test.c str_range.S
 clean:
 	rm -f test-bin
 
+test_asm: str_range_test
+	./str_range_test
+
+str_range_test: str_range_test.c str_range.S
+	$(CC) -Wall -g $(CFLAGS) $(LDFLAGS) -o $@ $^ -march=native -O3
+
 .PHONY: test
