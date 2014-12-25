@@ -60,7 +60,7 @@
 #define ADVANCE_TOKEN(tok, toklen) do { \
     const char* tok_start = buf; \
     int found2; \
-    buf = findchar_fast2(buf, buf_end, &found2); \
+    buf = findchar_space(buf, buf_end, &found2); \
     if (! found2) { \
       CHECK_EOF(); \
     } \
@@ -114,7 +114,7 @@ static const char* findchar_fast(const char* buf, const char* buf_end, const cha
   return buf;
 }
 
-static const char* findchar_fast1(const char* buf, const char* buf_end, int* found)
+static const char* findchar_ctl(const char* buf, const char* buf_end, int* found)
 {
   static const char ranges[] =
     "\0\010"
@@ -125,15 +125,48 @@ static const char* findchar_fast1(const char* buf, const char* buf_end, int* fou
     /* allow chars w. MSB set */
     ;
   return findchar_fast(buf, buf_end, ranges, sizeof(ranges) - 1, found);
+#endif
 }
 
-static const char* findchar_fast2(const char* buf, const char* buf_end, int* found)
+static const char* findchar_space(const char* buf, const char* buf_end, int* found)
 {
+#if 0
+  // find c in [0, 0x21) | 0x7f
+//  const __m256i c00 = _mm256_setzero_si256();
+  const __m256i c09 = _mm256_set1_epi8(0x09);
+  const __m256i c20 = _mm256_set1_epi8(0x20);
+  const __m256i c7f = _mm256_set1_epi8(0x7f);
+  while (buf - buf_end >= 64) {
+    __m256i x0 = _mm256_loadu_si256((const __m256i*)buf);
+    __m256i x1 = _mm256_loadu_si256((const __m256i*)(buf + 32));
+    __m256i y0 = _mm256_cmpgt_epi8(c20, x0); // x0 < 0x20
+    __m256i y1 = _mm256_cmpgt_epi8(c20, x1); // x1 < 0x20
+    __m256i z0 = _mm256_cmpeq_epi8(x0, c09); // x0 == 0x09
+    __m256i z1 = _mm256_cmpeq_epi8(x1, c09); // x1 == 0x09
+    z0 = _mm256_andnot_si256(z0, y0); // (x0 != 0x09) & (x0 < 0x20)
+    z1 = _mm256_andnot_si256(z1, y1); // (x1 != 0x09) & (x1 < 0x20)
+	z0 = _mm256_or_si256(z0, _mm256_cmpeq_epi8(x0, c7f));
+	z1 = _mm256_or_si256(z1, _mm256_cmpeq_epi8(x1, c7f));
+    uint64_t v0 = _mm256_movemask_epi8(z0);
+    uint64_t v1 = _mm256_movemask_epi8(z1);
+    v0 |= (v1 << 32);
+    int v = __builtin_clzl(v0 ^ 63);
+    if (v >= 0) {
+      *found = 1;
+      return buf + v;
+    }
+    buf += 64;
+  }
+  *found = 0;
+  return buf;
+#else
   static const char ranges[] __attribute__((aligned(16))) = "\000\040\177\177";
   return findchar_fast(buf, buf_end, ranges, sizeof(ranges) - 1, found);
+#endif
 }
 
-static const char* findchar_fast3(const char* buf, const char* buf_end, int* found)
+// short
+static const char* findchar_colon(const char* buf, const char* buf_end, int* found)
 {
   static const char ranges[] __attribute__((aligned(16))) = "::\x00\037";
   return findchar_fast(buf, buf_end, ranges, sizeof(ranges) - 1, found);
@@ -146,7 +179,7 @@ static const char* get_token_to_eol(const char* buf, const char* buf_end,
   const char* token_start = buf;
 #ifdef __SSE4_2__
   int found;
-  buf = findchar_fast1(buf, buf_end, &found);
+  buf = findchar_ctl(buf, buf_end, &found);
   if (found)
     goto FOUND_CTL;
 #else
@@ -279,7 +312,7 @@ static const char* parse_headers(const char* buf, const char* buf_end,
        * http://www.mozilla.org/security/announce/2006/mfsa2006-33.html */
       headers[*num_headers].name = buf;
       int found;
-      buf = findchar_fast3(buf, buf_end, &found);
+      buf = findchar_colon(buf, buf_end, &found);
       if (! found) {
         CHECK_EOF();
       }
