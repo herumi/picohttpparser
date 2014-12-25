@@ -27,6 +27,7 @@
 #include <assert.h>
 #include <stddef.h>
 #include <string.h>
+#include <stdint.h>
 #ifdef __SSE4_2__
 # include <x86intrin.h>
 #endif
@@ -90,10 +91,30 @@ static const char* token_char_map =
   "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"
   "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0";
 
+static inline __m128i load16sub(const void *p, size_t shift)
+{
+  static const unsigned char shiftPtn[32] = {
+    0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f,
+    0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80
+  };
+  __m128i v = _mm_loadu_si128((const __m128i*)p);
+  return _mm_shuffle_epi8(v, *(const __m128i*)(shiftPtn + shift));
+}
+
+static inline __m128i load16(const char *p, size_t remain)
+{
+  const size_t addr = (size_t)p;
+  if (remain < 16 && ((addr & 0xfff) + remain > 0xfff)) {
+    return load16sub((const char*)(addr & -16), addr & 0xf);
+  }
+  return _mm_loadu_si128((const __m128i*)p);
+}
+
 static const char* findchar_fast(const char* buf, const char* buf_end, const char *ranges, size_t ranges_size, int* found)
 {
   *found = 0;
 #if __SSE4_2__
+#if 0
   if (likely(buf_end - buf >= 16)) {
     __m128i ranges16 = _mm_loadu_si128((const __m128i*)ranges);
 
@@ -110,6 +131,25 @@ static const char* findchar_fast(const char* buf, const char* buf_end, const cha
       left -= 16;
     } while (likely(left != 0));
   }
+#else
+  {
+    __m128i ranges16 = _mm_loadu_si128((const __m128i*)ranges);
+
+    for (;;) {
+      if (buf == buf_end) return buf;
+      size_t left = buf_end - buf;
+      __m128i b16 = load16(buf, left);
+      int r = _mm_cmpestri(ranges16, ranges_size, b16, left, _SIDD_LEAST_SIGNIFICANT | _SIDD_CMP_RANGES | _SIDD_UBYTE_OPS);
+      if (unlikely(r != 16)) {
+        buf += r;
+        *found = 1;
+        return buf;
+      }
+      if (left < 16) return buf;
+      buf += 16;
+    }
+  }
+#endif
 #endif
   return buf;
 }
