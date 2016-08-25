@@ -31,8 +31,8 @@ all:
 test: test-bin
 	$(PROVE) -v ./test-bin
 
-test-bin: picohttpparser.c picotest/picotest.c test.c
-	$(CC) -Wall $(CFLAGS) $(LDFLAGS) -o $@ $^
+test-bin: picohttpparser.c picotest/picotest.c test.c ../mie_string/mie_string_x64.o
+	$(CC) -Wall $(CFLAGS) $(LDFLAGS) -o $@ $^ -I../mie_string
 
 clean:
 	rm -f test-bin
