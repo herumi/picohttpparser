@@ -31,8 +31,9 @@ all:
 test: test-bin
 	$(PROVE) -v ./test-bin
 
+
 test-bin: picohttpparser.c picotest/picotest.c test.c ../mie_string/mie_string_x64.o
-	$(CC) -Wall $(CFLAGS) $(LDFLAGS) -o $@ $^ -I../mie_string
+	$(CC) -Wall -Ofast -march=native -o $@ $^ -DUSE_MIE_STRING -I../mie_string
 
 bench-org: picohttpparser.c bench.c
 	$(CC) -Wall -Ofast -march=native -o $@ $^
