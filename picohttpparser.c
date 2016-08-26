@@ -308,19 +308,11 @@ static const char *parse_headers(const char *buf, const char *buf_end, struct ph
                                                                        ":@"     /* 0x3a-0x40 */
                                                                        "[]"     /* 0x5b-0x5d */
                                                                        "{\377"; /* 0x7b-0xff */
-#ifdef MIE_USE_STRING
-			buf = mie_findCharRange(buf, buf_end - buf, ranges1, sizeof(ranges1) - 1);
-			if (!buf) {
-				*ret = -2;
-				return NULL;
-			}
-#else
             int found;
             buf = findchar_fast(buf, buf_end, ranges1, sizeof(ranges1) - 1, &found);
             if (!found) {
                 CHECK_EOF();
             }
-#endif
             while (1) {
                 if (*buf == ':') {
                     break;
