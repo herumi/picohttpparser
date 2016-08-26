@@ -35,7 +35,9 @@
 #endif
 #endif
 #include "picohttpparser.h"
+#ifdef USE_MIE_STRING
 #include "mie_string.h"
+#endif
 
 /* $Id$ */
 
@@ -67,19 +69,6 @@
         *ret = -1;                                                                                                                 \
         return NULL;                                                                                                               \
     }
-
-#define ADVANCE_TOKEN2(tok, toklen)                                                                                                 \
-    do {                                                                                                                           \
-        const char *tok_start = buf;                                                                                               \
-        static const char ALIGNED(16) ranges2[] = "\000\040\177\177";                                                              \
-        buf = mie_findCharRange(buf, buf_end - buf, ranges2, sizeof(ranges2) - 1);                                                 \
-        if (!buf) {                                                                                                                \
-			*ret = -2;                                                                                                             \
-			return NULL;                                                                                                           \
-        }                                                                                                                          \
-        tok = tok_start;                                                                                                           \
-        toklen = buf - tok_start;                                                                                                  \
-    } while (0)
 
 #define ADVANCE_TOKEN(tok, toklen)                                                                                                 \
     do {                                                                                                                           \
@@ -117,15 +106,6 @@ static const char *token_char_map = "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\
 
 static const char *findchar_fast(const char *buf, const char *buf_end, const char *ranges, size_t ranges_size, int *found)
 {
-#if 1
-	const char *p = mie_findCharRange(buf, buf_end - buf, ranges, ranges_size);
-	if (p) {
-		*found = 1;
-		return p;
-	}
-	*found = 0;
-	return buf_end;
-#else
     *found = 0;
 #if __SSE4_2__
     if (likely(buf_end - buf >= 16)) {
@@ -151,14 +131,13 @@ static const char *findchar_fast(const char *buf, const char *buf_end, const cha
     (void)ranges_size;
 #endif
     return buf;
-#endif
 }
 
 static const char *get_token_to_eol(const char *buf, const char *buf_end, const char **token, size_t *token_len, int *ret)
 {
     const char *token_start = buf;
 
-#if 1
+#ifdef USE_MIE_STRING
     static const char ranges1[] = "\0\010"
                                   /* allow HT */
                                   "\012\037"
@@ -329,11 +308,19 @@ static const char *parse_headers(const char *buf, const char *buf_end, struct ph
                                                                        ":@"     /* 0x3a-0x40 */
                                                                        "[]"     /* 0x5b-0x5d */
                                                                        "{\377"; /* 0x7b-0xff */
+#ifdef MIE_USE_STRING
+			buf = mie_findCharRange(buf, buf_end - buf, ranges1, sizeof(ranges1) - 1);
+			if (!buf) {
+				*ret = -2;
+				return NULL;
+			}
+#else
             int found;
             buf = findchar_fast(buf, buf_end, ranges1, sizeof(ranges1) - 1, &found);
             if (!found) {
                 CHECK_EOF();
             }
+#endif
             while (1) {
                 if (*buf == ':') {
                     break;
